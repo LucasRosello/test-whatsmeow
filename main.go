@@ -8,18 +8,21 @@ import (
 	"syscall"
 
 	"go.mau.fi/whatsmeow"
+	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
+
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
-		_ "github.com/mattn/go-sqlite3" // Importa el controlador de SQLite3
-	
+	_ "github.com/mattn/go-sqlite3" // Importa el controlador de SQLite3
 )
 
 func eventHandler(evt interface{}) {
 	switch v := evt.(type) {
 	case *events.Message:
 		fmt.Println("Received a message!", v.Message.GetConversation())
+
 	}
 }
 
@@ -62,11 +65,24 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-	}
 
-	client.SendMessage(context.Background(), targetJID, &waProto.Message{
-		Conversation: proto.String("Hello, World!"),
-	})
+		// Convert the string constant to types.JID
+		recipientJID := types.JID{User: "5491160312081", Server: "s.whatsapp.net"}
+
+		var message waProto.Message
+
+		msg := "Hola, soy un bot de prueba"
+
+		message.Conversation = &msg
+
+		// Send a message saying "Hello world!" to 5491160312081
+		response, err := client.SendMessage(context.Background(), recipientJID, &message)
+
+		fmt.Println("1ban")
+		fmt.Printf("Respuesta: %s Error: %s", response, err)
+		fmt.Println("2ban")
+
+	}
 
 	// Listen to Ctrl+C (you can also do something else that prevents the program from exiting)
 	c := make(chan os.Signal)
