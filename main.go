@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+
 	"syscall"
 
 	"go.mau.fi/whatsmeow"
@@ -16,6 +17,7 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 
 	_ "github.com/mattn/go-sqlite3" // Importa el controlador de SQLite3
+	"github.com/mdp/qrterminal"
 )
 
 func eventHandler(evt interface{}) {
@@ -52,7 +54,7 @@ func main() {
 		for evt := range qrChan {
 			if evt.Event == "code" {
 				// Render the QR code here
-				// e.g. qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
+				qrterminal.GenerateHalfBlock(evt.Code, qrterminal.L, os.Stdout)
 				// or just manually `echo 2@... | qrencode -t ansiutf8` in a terminal
 				fmt.Println("QR code:", evt.Code)
 			} else {
@@ -71,7 +73,7 @@ func main() {
 
 		var message waProto.Message
 
-		msg := "Hola, soy un bot de prueba"
+		msg := "¿Como esta mi princesita hermosa?"
 
 		message.Conversation = &msg
 
@@ -90,4 +92,47 @@ func main() {
 	<-c
 
 	client.Disconnect()
+}
+
+func sendSimpleMessage(jid types.JID /*aca deberia clavar una lista de mensajes y recorrerla*/, messageText string, destinatario string) error {
+
+	dbLog := waLog.Stdout("Database", "DEBUG", true)
+	// Make sure you add appropriate DB connector imports, e.g. github.com/mattn/go-sqlite3 for SQLite
+	container, err := sqlstore.New("sqlite3", "file:examplestore.db?_foreign_keys=on", dbLog)
+	if err != nil {
+		panic(err)
+	}
+	// If you want multiple sessions, remember their JIDs and use .GetDevice(jid) or .GetAllDevices() instead.
+	deviceStore, err := container.GetDevice(jid)
+	if err != nil {
+		panic(err)
+	}
+	clientLog := waLog.Stdout("Client", "DEBUG", true)
+	client := whatsmeow.NewClient(deviceStore, clientLog)
+
+	// client.AddEventHandler(eventHandler)
+
+	// Already logged in, just connect
+	err = client.Connect()
+	if err != nil {
+		panic(err)
+	}
+
+	// Convert the string constant to types.JID
+	if destinatario == "" {
+		return fmt.Errorf("El destinatario no puede ser vacio")
+	}
+	recipientJID := types.JID{User: destinatario, Server: "s.whatsapp.net"}
+
+	var message waProto.Message
+
+	message.Conversation = &messageText
+
+	response, err := client.SendMessage(context.Background(), recipientJID, &message)
+
+	fmt.Println(response, err) // enrealidad esto deberia ser un log
+
+	client.Disconnect()
+
+	return nil
 }
