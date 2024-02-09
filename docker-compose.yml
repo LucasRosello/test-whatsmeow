@@ -8,5 +8,12 @@ services:
       - type: volume
         source: examplestore-volume
         target: /app/data
+  db:
+    image: mongo:4.4
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
 volumes:
   examplestore-volume:
+  mongodb_data:

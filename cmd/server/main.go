@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"syscall"
 
@@ -12,23 +14,42 @@ import (
 	waProto "go.mau.fi/whatsmeow/binary/proto"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 
+	"github.com/gin-gonic/gin"
+	"github.com/lucasrosello/test-whatsmeow/cmd/server/handler"
+	"github.com/lucasrosello/test-whatsmeow/internal/notification"
 	_ "github.com/mattn/go-sqlite3" // Importa el controlador de SQLite3
 	"github.com/mdp/qrterminal"
 )
 
-func eventHandler(evt interface{}) {
-	switch v := evt.(type) {
-	case *events.Message:
-		fmt.Println("Received a message!", v.Message.GetConversation())
+// func eventHandler(evt interface{}) {
+// 	switch v := evt.(type) {
+// 	case *events.Message:
+// 		fmt.Println("Received a message!", v.Message.GetConversation())
 
-	}
-}
+// 	}
+// }
 
 func main() {
+	// Establecer un contexto con un timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Conectar a MongoDB
+	mongoClient, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://db:27017"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Obtener una referencia a la base de datos
+	db := mongoClient.Database("mydatabase")
+
+	fmt.Println(db)
+
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	// Make sure you add appropriate DB connector imports, e.g. github.com/mattn/go-sqlite3 for SQLite
 	container, err := sqlstore.New("sqlite3", "file:../../app/data/examplestore.db?_foreign_keys=on", dbLog)
@@ -42,7 +63,7 @@ func main() {
 	}
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
-	client.AddEventHandler(eventHandler)
+	// client.AddEventHandler(eventHandler)
 
 	if client.Store.ID == nil {
 		// No ID stored, new login
@@ -90,6 +111,22 @@ func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
+
+	router := gin.Default()
+
+	notificationRepository := notification.NewRepository(db)
+	notificationService := notification.NewService(notificationRepository)
+	notificationHandler := handler.NewNotification(notificationService)
+	NotificationsRoutes := router.Group("/api/v1/notification")
+	{
+		NotificationsRoutes.GET("/", notificationHandler.GetAll())
+		NotificationsRoutes.GET("/:id", notificationHandler.Get())
+		NotificationsRoutes.POST("/", notificationHandler.Store())
+		NotificationsRoutes.PATCH("/:id", notificationHandler.Update())
+		NotificationsRoutes.DELETE("/:id", notificationHandler.Delete())
+	}
+
+	router.Run() // Update the URL to match your Docker Compose configuration
 
 	client.Disconnect()
 }
