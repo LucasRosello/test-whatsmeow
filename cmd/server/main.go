@@ -31,7 +31,7 @@ func eventHandler(evt interface{}) {
 func main() {
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	// Make sure you add appropriate DB connector imports, e.g. github.com/mattn/go-sqlite3 for SQLite
-	container, err := sqlstore.New("sqlite3", "file:examplestore.db?_foreign_keys=on", dbLog)
+	container, err := sqlstore.New("sqlite3", "file:../../app/data/examplestore.db?_foreign_keys=on", dbLog)
 	if err != nil {
 		panic(err)
 	}
